@@ -3,7 +3,17 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-const HEADERS = ["TotalGas", "C1", "C2", "C3", "iC4", "nC4", "iC5", "nC5"];
+const HEADERS = [
+  "Depth",
+  "TotalGas",
+  "C1",
+  "C2",
+  "C3",
+  "iC4",
+  "nC4",
+  "iC5",
+  "nC5",
+];
 const COMPONENT_KEYS = ["C1", "C2", "C3", "iC4", "nC4", "iC5", "nC5"];
 const PPM_PER_UNIT = 200;
 const TOLERANCE_FRACTION = 0.01;
@@ -34,7 +44,13 @@ function parseTextToRows(text) {
           (h) => h && h.toLowerCase() === key.toLowerCase()
         );
         const val = findIdx >= 0 ? cells[i][findIdx] : cells[i][idx];
-        row[key] = val === "" ? "" : Number(val);
+
+        // Depth stays as string, others numeric
+        if (key === "Depth") {
+          row[key] = val ?? "";
+        } else {
+          row[key] = val === "" ? "" : Number(val);
+        }
       });
       parsed.push(row);
     }
@@ -42,7 +58,12 @@ function parseTextToRows(text) {
     for (const r of cells) {
       const row = {};
       HEADERS.forEach((key, idx) => {
-        row[key] = r[idx] === undefined || r[idx] === "" ? "" : Number(r[idx]);
+        if (key === "Depth") {
+          row[key] = r[idx] ?? "";
+        } else {
+          row[key] =
+            r[idx] === undefined || r[idx] === "" ? "" : Number(r[idx]);
+        }
       });
       parsed.push(row);
     }
@@ -69,16 +90,32 @@ function computeRow(row) {
 
 export default function App() {
   const [rows, setRows] = useState([]);
-  const [overLimit, setOverLimit] = useState(false); // new state for indicator
+  const [overLimit, setOverLimit] = useState(false);
+  const [minMax, setMinMax] = useState({ min: null, max: null });
   const fileRef = useRef(null);
 
   // Update overLimit indicator whenever rows change
   useEffect(() => {
     const anyOver = rows.some((r) => Number(r.input.TotalGas || 0) > 100);
     setOverLimit(anyOver);
+
+    if (rows.length > 0) {
+      const values = rows.map((r) => Number(r.input.TotalGas || 0));
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      setMinMax({ min, max });
+    }
   }, [rows]);
 
   function addRowsFromParsed(parsed) {
+    // Enforce Depth requirement
+    for (let row of parsed) {
+      if (!row.Depth) {
+        alert("Depth must be added for all rows!");
+        return;
+      }
+    }
+
     const newRows = parsed.map((r, i) => {
       const input = {};
       HEADERS.forEach(
@@ -195,20 +232,29 @@ export default function App() {
 
   function exportCsv() {
     const cols = [
+      "Depth",
       "TotalGas",
       ...COMPONENT_KEYS,
       "SumUnits",
       "TotalGas(%)",
       "Status",
+      "Flag",
     ];
     const lines = [cols.join(",")];
     rows.forEach((r) => {
+      const tg = Number(r.input.TotalGas || 0);
+      let flag = "";
+      if (tg === minMax.max) flag = "MAX";
+      if (tg === minMax.min) flag = "MIN";
+
       const values = [
+        r.input.Depth ?? "",
         r.input.TotalGas ?? "",
         ...COMPONENT_KEYS.map((k) => r.input[k] ?? ""),
         (r.results.sumUnits || 0).toFixed(6),
         (r.results.percent || 0).toFixed(6),
         r.results.ok ? "GOOD" : "BAD",
+        flag,
       ];
       lines.push(values.join(","));
     });
@@ -246,9 +292,17 @@ export default function App() {
             animation: "pulse 1s infinite",
           }}
         >
-          TotalGas > 100
+          TotalGas &gt; 100
         </div>
       )}
+
+      <div style={{ marginBottom: 6, fontSize: 14, fontWeight: "bold" }}>
+        {minMax.min !== null && minMax.max !== null && (
+          <>
+            Min TotalGas: {minMax.min} | Max TotalGas: {minMax.max}
+          </>
+        )}
+      </div>
 
       <style>
         {`
@@ -305,6 +359,9 @@ export default function App() {
             <tr>
               <th style={{ border: "1px solid #999", padding: 4 }}>#</th>
               <th style={{ border: "1px solid #999", padding: 4 }}>
+                Depth (m)
+              </th>
+              <th style={{ border: "1px solid #999", padding: 4 }}>
                 TotalGas (u)
               </th>
               {COMPONENT_KEYS.map((k) => (
@@ -333,14 +390,30 @@ export default function App() {
             )}
             {rows.map((r, idx) => {
               const ok = r.results.ok;
+              const tg = Number(r.input.TotalGas || 0);
+              const isMax = tg === minMax.max;
+              const isMin = tg === minMax.min;
               const bgColor = ok ? "#4caf50" : "#f44336";
               const textColor = "#fff";
               return (
                 <tr
                   key={r.id}
-                  style={{ background: bgColor, color: textColor }}
+                  style={{
+                    background: bgColor,
+                    color: textColor,
+                    fontWeight: isMax || isMin ? "bold" : "normal",
+                  }}
                 >
                   <td style={{ padding: 4, textAlign: "center" }}>{idx + 1}</td>
+                  <td style={{ padding: 4 }}>
+                    <input
+                      value={r.input.Depth ?? ""}
+                      onChange={(e) =>
+                        updateCell(r.id, "Depth", e.target.value)
+                      }
+                      style={{ width: 70, fontSize: 12 }}
+                    />
+                  </td>
                   <td style={{ padding: 4 }}>
                     <input
                       value={r.input.TotalGas ?? ""}
@@ -349,6 +422,8 @@ export default function App() {
                       }
                       style={{ width: 70, fontSize: 12 }}
                     />
+                    {isMax && <div style={{ fontSize: 10 }}>MAX</div>}
+                    {isMin && <div style={{ fontSize: 10 }}>MIN</div>}
                   </td>
                   {COMPONENT_KEYS.map((k) => (
                     <td key={k} style={{ padding: 2 }}>
