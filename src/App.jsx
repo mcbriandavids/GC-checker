@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import * as XLSX from "xlsx";
+import { useState, useEffect } from "react";
+
 import { parseTextToRows } from "./utils/parser.js";
 import { computeRow } from "./utils/calculator.js";
 import { exportCsv } from "./utils/exporter.js";
 import { HEADERS, COMPONENT_KEYS } from "./utils/constants.js";
 
-import { Controls } from "./components/Controls.jsx";
 import { DataTable } from "./components/DataTable.jsx";
 import { Notification } from "./components/Notification.jsx";
+import { Modal } from "./components/Modal.jsx"; // ✅ import reusable modal
 
 export const App = () => {
   const [rows, setRows] = useState(() => {
@@ -19,10 +19,10 @@ export const App = () => {
   const [maxGasRow, setMaxGasRow] = useState(null);
   const [notification, setNotification] = useState(null);
   const [depthUnit, setDepthUnit] = useState("m");
-  const fileRef = useRef(null);
 
-  const [modal, setModal] = useState(null);
+  const [modal, setModal] = useState(null); // {type, message, onConfirm, onCancel}
   const [pendingParsedRows, setPendingParsedRows] = useState([]);
+  const [pasteText, setPasteText] = useState(""); // ✅ hold textarea input
 
   // Persist rows & compute limits
   useEffect(() => {
@@ -80,12 +80,23 @@ export const App = () => {
     setRows((prev) => [...prev, ...newRows]);
   };
 
+  // ✅ updated: now uses modal instead of window.prompt
   const handleManualPaste = () => {
-    const text = window.prompt("📋 Paste rows (tab/comma/space-delimited):");
-    if (!text) return;
+    setModal({
+      type: "paste",
+      message: "📋 Paste rows (tab/comma/space-delimited):",
+    });
+  };
 
-    const parsed = parseTextToRows(text);
-    if (parsed.length === 0) return;
+  const submitManualPaste = () => {
+    if (!pasteText) return;
+
+    const parsed = parseTextToRows(pasteText);
+    if (parsed.length === 0) {
+      setPasteText("");
+      setModal(null);
+      return;
+    }
 
     const firstPastedDepth = Number(parsed[0].Depth || 0);
     const lastExistingDepth =
@@ -96,25 +107,35 @@ export const App = () => {
         (r) => Number(r.Depth || 0) > lastExistingDepth
       );
       if (filtered.length === 0) {
-        showNotification("ℹ️ No new depths to append.", "info");
+        showNotification(
+          "ℹ️ Depth Pasted Already, only new depths will be appended.",
+          "info"
+        );
+        setPasteText("");
+        setModal(null);
         return;
       }
       setPendingParsedRows(filtered);
       setModal({
+        type: "confirm",
         message:
           "⚠️ The pasted data contains existing depths. Append only new depths?",
         onConfirm: () => {
-          addRowsFromParsed(pendingParsedRows);
+          addRowsFromParsed(filtered);
           setModal(null);
+          setPasteText("");
           setPendingParsedRows([]);
         },
         onCancel: () => {
           setModal(null);
+          setPasteText("");
           setPendingParsedRows([]);
         },
       });
     } else {
       addRowsFromParsed(parsed);
+      setModal(null);
+      setPasteText("");
     }
   };
 
@@ -156,14 +177,14 @@ export const App = () => {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          background: "#2c3e50", // darker, less bright
+          background: "#2c3e50",
           color: "#ecf0f1",
           padding: "16px",
           borderRadius: "6px",
           boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
           marginBottom: "16px",
-          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", // unique, clean font
-          fontSize: "22px", // bigger font size
+          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+          fontSize: "22px",
           fontWeight: "bold",
         }}
       >
@@ -269,7 +290,8 @@ export const App = () => {
             fontWeight: "bold",
           }}
         >
-          ⚠️ TotalGas > 50
+          {" "}
+          TotalGas &gt; 50
         </div>
       )}
 
@@ -333,66 +355,22 @@ export const App = () => {
         convertDepth={convertDepth}
       />
 
-      {/* Modal */}
+      {/* ✅ Modal Integration */}
       {modal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
+        <Modal
+          type={modal.type}
+          message={modal.message}
+          pasteText={pasteText}
+          setPasteText={setPasteText}
+          onConfirm={
+            modal.type === "paste" ? submitManualPaste : modal.onConfirm
+          }
+          onCancel={() => {
+            setModal(null);
+            setPasteText("");
+            if (modal.onCancel) modal.onCancel();
           }}
-        >
-          <div
-            style={{
-              background: "white",
-              padding: 24,
-              borderRadius: 8,
-              textAlign: "center",
-              width: 400,
-            }}
-          >
-            <p>{modal.message}</p>
-            <div
-              style={{
-                marginTop: 16,
-                display: "flex",
-                justifyContent: "space-around",
-              }}
-            >
-              <button
-                onClick={modal.onConfirm}
-                style={{
-                  padding: "8px 16px",
-                  background: "#4caf50",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 4,
-                }}
-              >
-                ✅ Yes
-              </button>
-              <button
-                onClick={modal.onCancel}
-                style={{
-                  padding: "8px 16px",
-                  background: "#f44336",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 4,
-                }}
-              >
-                ❌ No
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
     </div>
   );
