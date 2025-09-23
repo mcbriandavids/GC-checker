@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-
 import { parseTextToRows } from "./utils/parser.js";
 import { computeRow } from "./utils/calculator.js";
 import { exportCsv } from "./utils/exporter.js";
@@ -7,7 +6,7 @@ import { HEADERS, COMPONENT_KEYS } from "./utils/constants.js";
 
 import { DataTable } from "./components/DataTable.jsx";
 import { Notification } from "./components/Notification.jsx";
-import { Modal } from "./components/Modal.jsx"; // ✅ import reusable modal
+import { Modal } from "./components/Modal.jsx";
 
 export const App = () => {
   const [rows, setRows] = useState(() => {
@@ -20,9 +19,11 @@ export const App = () => {
   const [notification, setNotification] = useState(null);
   const [depthUnit, setDepthUnit] = useState("m");
 
-  const [modal, setModal] = useState(null); // {type, message, onConfirm, onCancel}
-  const [pendingParsedRows, setPendingParsedRows] = useState([]);
-  const [pasteText, setPasteText] = useState(""); // ✅ hold textarea input
+  const [modal, setModal] = useState(null);
+  const [pasteText, setPasteText] = useState("");
+
+  // ✅ Track About modal separately
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // Persist rows & compute limits
   useEffect(() => {
@@ -80,7 +81,6 @@ export const App = () => {
     setRows((prev) => [...prev, ...newRows]);
   };
 
-  // ✅ updated: now uses modal instead of window.prompt
   const handleManualPaste = () => {
     setModal({
       type: "paste",
@@ -115,7 +115,6 @@ export const App = () => {
         setModal(null);
         return;
       }
-      setPendingParsedRows(filtered);
       setModal({
         type: "confirm",
         message:
@@ -124,12 +123,10 @@ export const App = () => {
           addRowsFromParsed(filtered);
           setModal(null);
           setPasteText("");
-          setPendingParsedRows([]);
         },
         onCancel: () => {
           setModal(null);
           setPasteText("");
-          setPendingParsedRows([]);
         },
       });
     } else {
@@ -164,31 +161,71 @@ export const App = () => {
     setRows((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const allNormalized = rows.every((r) => r.normalized);
+  const allGood = rows.length > 0 && rows.every((r) => r.results.ok);
+
+  // ✅ IPC Exit
+  const handleExit = () => {
+    if (window.electron) {
+      window.electron.exitApp();
+    } else {
+      window.close();
+    }
+  };
 
   return (
     <div
       className="container"
       style={{ padding: 16, fontFamily: "Arial, sans-serif" }}
     >
-      {/* Title */}
+      {/* ✅ Header with Exit + About */}
       <div
         style={{
           display: "flex",
-          justifyContent: "center",
+          justifyContent: "space-between",
           alignItems: "center",
           background: "#2c3e50",
           color: "#ecf0f1",
-          padding: "16px",
+          padding: "12px 16px",
           borderRadius: "6px",
           boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
           marginBottom: "16px",
           fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-          fontSize: "22px",
+          fontSize: "18px",
           fontWeight: "bold",
         }}
       >
-        GC Balance Checker
+        <span>GC Balance Checker</span>
+        <div>
+          {/* About Button */}
+          <button
+            onClick={() => setAboutOpen(true)}
+            style={{
+              marginRight: "10px",
+              padding: "6px 12px",
+              border: "none",
+              borderRadius: "6px",
+              backgroundColor: "#0078d7",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            About
+          </button>
+
+          <button
+            onClick={handleExit}
+            style={{
+              padding: "6px 12px",
+              background: "#e74c3c",
+              border: "none",
+              borderRadius: "4px",
+              color: "white",
+              cursor: "pointer",
+            }}
+          >
+            ❌ Exit
+          </button>
+        </div>
       </div>
 
       {/* Max Gas Summary */}
@@ -290,7 +327,6 @@ export const App = () => {
             fontWeight: "bold",
           }}
         >
-          {" "}
           TotalGas &gt; 50
         </div>
       )}
@@ -312,18 +348,16 @@ export const App = () => {
           📋 Paste Data
         </button>
         <button
-          onClick={
-            allNormalized ? () => exportCsv(rows, minMax, depthUnit) : null
-          }
-          disabled={!allNormalized}
+          onClick={allGood ? () => exportCsv(rows, minMax, depthUnit) : null}
+          disabled={!allGood}
           style={{
             padding: "8px 16px",
             margin: "0 4px",
             borderRadius: 4,
             border: "none",
-            background: allNormalized ? "#4caf50" : "#9e9e9e",
+            background: allGood ? "#4caf50" : "#9e9e9e",
             color: "white",
-            cursor: allNormalized ? "pointer" : "not-allowed",
+            cursor: allGood ? "pointer" : "not-allowed",
           }}
         >
           📤 Export
@@ -370,6 +404,33 @@ export const App = () => {
             setPasteText("");
             if (modal.onCancel) modal.onCancel();
           }}
+        />
+      )}
+
+      {/* ✅ About Modal */}
+      {aboutOpen && (
+        <Modal
+          type="info"
+          message={
+            <div style={{ textAlign: "left" }}>
+              <h2>About GC Balance Checker</h2>
+              <p>
+                This application helps you analyze Gas Chromatography (GC) data
+                with balance checks, normalization, and export options.
+              </p>
+              <ul>
+                <li>📋 Paste data directly into the app.</li>
+                <li>✅ Normalize gas components against TotalGas.</li>
+                <li>⚠️ Get alerts if TotalGas exceeds 50.</li>
+                <li>📤 Export your data as CSV when normalized.</li>
+              </ul>
+              <p>
+                Designed & developed by <b>Imonisa Oghenekevwe Brian</b>.
+              </p>
+            </div>
+          }
+          onConfirm={() => setAboutOpen(false)}
+          onCancel={() => setAboutOpen(false)}
         />
       )}
     </div>
