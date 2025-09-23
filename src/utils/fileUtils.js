@@ -4,6 +4,12 @@ import { saveAs } from "file-saver";
 import Headers from "./parser";
 import { COMPONENT_KEYS } from "./calculator";
 
+// You should implement this function in your app to show errors in a user-friendly way (e.g., toast notification)
+function handleCsvParseError(err) {
+  // Example: Replace with your preferred error UI
+  console.error("CSV parse error:", err.message);
+}
+
 export function importCSV(file, addRowsFromParsed) {
   Papa.parse(file, {
     header: true,
@@ -21,32 +27,13 @@ export function importCSV(file, addRowsFromParsed) {
       });
       addRowsFromParsed(normalized);
     },
-    error: (err) => alert("CSV parse error: " + err.message),
+    error: handleCsvParseError,
   });
 }
 
-export function importExcel(file, addRowsFromParsed) {
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const wb = XLSX.read(ev.target.result, { type: "binary" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
-    const normalized = json.map((r) => {
-      const row = {};
-      Headers.forEach((h) => {
-        const found = Object.keys(r).find(
-          (k) => k && k.toLowerCase().trim() === h.toLowerCase()
-        );
-        row[h] = found ? r[found] : r[h] ?? "";
-      });
-      return row;
-    });
-    addRowsFromParsed(normalized);
-  };
-  reader.readAsBinaryString(file);
-}
+const DEFAULT_EXPORT_FILENAME = "gc_check_results.csv";
 
-export function exportCsv(rows, minMax) {
+export function exportCsv(rows, minMax, fileName = DEFAULT_EXPORT_FILENAME) {
   const cols = [
     "Depth",
     "TotalGas",
@@ -69,7 +56,7 @@ export function exportCsv(rows, minMax) {
       ...COMPONENT_KEYS.map((k) => r.input[k] ?? ""),
       (r.results.sumUnits || 0).toFixed(6),
       (r.results.percent || 0).toFixed(6),
-      r.results.ok ? "GOOD" : "BAD",
+      r.results.ok ? "✔" : "✖",
       flag,
     ];
     lines.push(values.join(","));
@@ -77,5 +64,5 @@ export function exportCsv(rows, minMax) {
   const blob = new Blob([lines.join("\n")], {
     type: "text/csv;charset=utf-8;",
   });
-  saveAs(blob, "gc_check_results.csv");
+  saveAs(blob, fileName);
 }

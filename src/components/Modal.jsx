@@ -50,9 +50,122 @@ export const Modal = ({
             </div>
           </>
         )}
+
+        {/* About Modal */}
+        {type === "info" && (
+          <div style={aboutModalStyle}>
+            <span
+              style={{
+                position: "absolute",
+                top: 18,
+                right: 28,
+                fontSize: 28,
+                color: "#888",
+                cursor: "pointer",
+                fontWeight: "bold",
+                zIndex: 10,
+              }}
+              onClick={onCancel}
+              title="Close"
+            >
+              ×
+            </span>
+            <img
+              src="/vite.svg"
+              alt="App Logo"
+              style={{ width: 60, marginBottom: 12 }}
+            />
+            <h2 style={{ color: "#1976d2", marginBottom: 8 }}>
+              About GC Balance Checker
+            </h2>
+            <p style={{ fontSize: 15, marginBottom: 8 }}>
+              <b>GC Balance Checker</b> is a modern tool for analyzing Gas
+              Chromatography (GC) data.
+              <br />
+              <span style={{ color: "#1976d2" }}>Features include:</span>
+            </p>
+            <ul
+              style={{
+                textAlign: "left",
+                margin: "0 auto 12px",
+                maxWidth: 340,
+                fontSize: 15,
+              }}
+            >
+              <li>📋 Paste or import data directly into the app.</li>
+              <li>
+                ✅ Normalize gas components against TotalGas for accuracy.
+              </li>
+              <li>⚠️ Get instant alerts if TotalGas exceeds safe limits.</li>
+              <li>� Visualize and review your data in a clear table.</li>
+              <li>
+                �📤 Export your results as CSV for reporting or further
+                analysis.
+              </li>
+              <li>
+                🔒 All processing is local—your data never leaves your device.
+              </li>
+            </ul>
+            <div
+              style={{
+                fontSize: 14,
+                marginBottom: 8,
+                textAlign: "left",
+                maxWidth: 340,
+              }}
+            >
+              <b>Version:</b> 1.0.0
+              <br />
+              <b>Author:</b> Imonisa Oghenekevwe Brian
+              <br />
+              <b>Contact:</b>{" "}
+              <a
+                href="mailto:mcrbiandavids43@gmail.com"
+                style={{ color: "#1976d2" }}
+              >
+                mcrbiandavids43@gmail.com
+              </a>
+              <br />
+              <b>License:</b> MIT
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <a
+                href="https://github.com/mcbriandavids/GC-checker"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "#1976d2",
+                  textDecoration: "underline",
+                  fontWeight: "bold",
+                }}
+              >
+                GitHub Repository
+              </a>
+            </div>
+            <button
+              onClick={onCancel}
+              style={{
+                ...okButtonStyle,
+                width: 120,
+                fontWeight: "bold",
+                fontSize: 16,
+              }}
+            >
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
+};
+
+const aboutModalStyle = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  padding: 0,
+  position: "relative",
 };
 
 // 🎨 Styles

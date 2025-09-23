@@ -1,5 +1,6 @@
 import { COMPONENT_KEYS } from "../utils/constants";
 
+// Defensive: Ensure r.input[k] is a number before calling toFixed
 export const DataTable = ({ rows, normalizeRow, convertDepth }) => {
   return (
     <table
@@ -34,14 +35,18 @@ export const DataTable = ({ rows, normalizeRow, convertDepth }) => {
               {convertDepth(r.input.Depth)}
             </td>
             <td style={{ border: "1px solid #ccc", padding: "4px" }}>
-              {r.results.percent.toFixed(2)}
+              {typeof r.results.percent === "number"
+                ? r.results.percent.toFixed(2)
+                : ""}
             </td>
             <td style={{ border: "1px solid #ccc", padding: "4px" }}>
-              {r.input.TotalGas.toFixed(2)}
+              {typeof r.input.TotalGas === "number"
+                ? r.input.TotalGas.toFixed(2)
+                : ""}
             </td>
             {COMPONENT_KEYS.map((k) => (
               <td key={k} style={{ border: "1px solid #ccc", padding: "4px" }}>
-                {r.input[k].toFixed(2)}
+                {typeof r.input[k] === "number" ? r.input[k].toFixed(2) : ""}
               </td>
             ))}
             <td
@@ -49,10 +54,13 @@ export const DataTable = ({ rows, normalizeRow, convertDepth }) => {
                 border: "1px solid #ccc",
                 padding: "4px",
                 cursor: "pointer",
+                fontWeight: "bold",
+                color: r.results.ok ? "#388e3c" : "#d32f2f",
               }}
               onClick={() => normalizeRow(r.id)}
+              title="Normalize row"
             >
-              {r.normalized ? "✔" : "X"}
+              {r.results.ok ? "✔" : "✖"}
             </td>
           </tr>
         ))}

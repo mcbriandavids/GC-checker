@@ -1,0 +1,17 @@
+directories:
+  output: dist_electron
+  buildResources: assets
+appId: com.gc-checker.desktop
+productName: GC Checker
+files:
+  - filter:
+      - dist/**
+      - main.js
+      - package.json
+mac:
+  target: dmg
+win:
+  target: nsis
+linux:
+  target: AppImage
+electronVersion: 38.1.0
